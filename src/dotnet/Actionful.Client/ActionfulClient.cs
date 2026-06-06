@@ -123,8 +123,8 @@ internal sealed class ActionfulClient(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var opts = options ?? new BatchOptions();
-        var output = Channel.CreateUnbounded<InvocationResult<TOutput>>(
-            new UnboundedChannelOptions { SingleWriter = false, SingleReader = true });
+        var output = Channel.CreateBounded<InvocationResult<TOutput>>(
+            new BoundedChannelOptions(opts.OutputBufferCapacity) { SingleWriter = false, SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
 
         using var semaphore = new SemaphoreSlim(opts.MaxConcurrency);
         var stopSubmitting = 0; // 1 when StopOnFirstFailure triggers
@@ -168,8 +168,8 @@ internal sealed class ActionfulClient(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var opts = options ?? new PipelineOptions();
-        var output = Channel.CreateUnbounded<InvocationResult<TOutput>>(
-            new UnboundedChannelOptions { SingleWriter = false, SingleReader = true });
+        var output = Channel.CreateBounded<InvocationResult<TOutput>>(
+            new BoundedChannelOptions(opts.OutputBufferCapacity) { SingleWriter = false, SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
 
         using var semaphore = new SemaphoreSlim(opts.MaxConcurrency);
 
@@ -200,8 +200,8 @@ internal sealed class ActionfulClient(
     public ActionfulPipeline<TInput, TOutput> CreatePipeline<TInput, TOutput>(PipelineOptions? options = null)
     {
         var opts = options ?? new PipelineOptions();
-        var input = Channel.CreateUnbounded<TInput>(
-            new UnboundedChannelOptions { SingleWriter = false, SingleReader = true });
+        var input = Channel.CreateBounded<TInput>(
+            new BoundedChannelOptions(opts.InputBufferCapacity) { SingleWriter = false, SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
         var output = Channel.CreateBounded<InvocationResult<TOutput>>(
             new BoundedChannelOptions(opts.OutputBufferCapacity) { SingleWriter = false, SingleReader = false, FullMode = BoundedChannelFullMode.Wait });
 

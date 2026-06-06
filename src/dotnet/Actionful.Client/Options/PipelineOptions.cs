@@ -8,10 +8,21 @@ public sealed class PipelineOptions
     public int MaxConcurrency { get; init; } = 10;
 
     /// <summary>
-    /// Capacity of the bounded output channel used by <see cref="IActionfulClient.CreatePipeline"/>.
-    /// When the buffer is full, the pipeline pauses accepting new inputs until the consumer catches up. Default: 100.
+    /// Capacity of the bounded input channel used by
+    /// <see cref="IActionfulClient.CreatePipeline{TInput,TOutput}"/>.
+    /// When full, <see cref="ActionfulPipeline{TInput,TOutput}.Writer"/> blocks until the
+    /// pipeline consumes an item — this is the producer-side backpressure mechanism. Default: 1000.
     /// </summary>
-    public int OutputBufferCapacity { get; init; } = 100;
+    public int InputBufferCapacity { get; init; } = 1000;
+
+    /// <summary>
+    /// Capacity of the bounded output buffer used by
+    /// <see cref="IActionfulClient.ProcessAsync{TInput,TOutput}"/> and
+    /// <see cref="IActionfulClient.CreatePipeline{TInput,TOutput}"/>.
+    /// When full, workers block until the consumer reads — this is the consumer-side backpressure mechanism.
+    /// Default: 1000.
+    /// </summary>
+    public int OutputBufferCapacity { get; init; } = 1000;
 
     /// <summary>
     /// When false (default), results are yielded in completion order — fastest jobs come out first.

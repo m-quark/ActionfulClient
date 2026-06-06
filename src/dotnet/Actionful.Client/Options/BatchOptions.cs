@@ -11,4 +11,12 @@ public sealed class BatchOptions
     /// Already-running invocations are allowed to complete. Default: false.
     /// </summary>
     public bool StopOnFirstFailure { get; init; } = false;
+
+    /// <summary>
+    /// Capacity of the bounded output buffer used by
+    /// <see cref="IActionfulClient.StreamBatchAsync{TInput,TOutput}"/>.
+    /// When full, workers block until the consumer reads — this is the backpressure mechanism.
+    /// Default: 1000.
+    /// </summary>
+    public int OutputBufferCapacity { get; init; } = 1000;
 }
