@@ -1,12 +1,14 @@
-name: Publish NuGet
+name: Publish
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'       # triggers NuGet release  e.g. v1.2.0
+      - 'npm-v*'   # triggers npm release    e.g. npm-v1.2.0
 
 jobs:
-  publish:
+  publish-nuget:
+    if: startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
 
     steps:
@@ -35,3 +37,46 @@ jobs:
 
       - name: Push to NuGet
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+  publish-npm:
+    if: startsWith(github.ref_name, 'npm-v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          registry-url: https://registry.npmjs.org
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#npm-v}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        working-directory: src/js
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: src/js
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: src/js
+        run: npm test
+
+      - name: Build
+        working-directory: src/js
+        run: npm run build
+
+      - name: Set version
+        working-directory: src/js
+        run: npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
+
+      - name: Publish to npm
+        working-directory: src/js
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
