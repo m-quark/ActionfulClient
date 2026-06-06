@@ -1,0 +1,26 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.nupkg
+
+# Rider / JetBrains
+.idea/
+
+# VS Code
+.vscode/
+
+# Environment
+.env
+*.local
+
+# JS/TS
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
