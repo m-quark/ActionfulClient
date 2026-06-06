@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Actionful.Client.Tests/Actionful.Client.Tests.csproj" />
+  <Project Path="Actionful.Client/Actionful.Client.csproj" />
+</Solution>

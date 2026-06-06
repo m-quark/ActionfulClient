@@ -1,0 +1,22 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.nupkg
+
+# Rider / JetBrains
+.idea/
+
+# VS Code
+.vscode/
+
+# Environment
+.env
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
