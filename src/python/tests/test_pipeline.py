@@ -1,4 +1,5 @@
 import asyncio
+import httpx
 import respx
 
 from .conftest import ENDPOINT, JOB_URL, make_client, resp_200, resp_202
@@ -49,8 +50,6 @@ async def test_pipeline_errors_captured_per_item():
 
     call_count = 0
 
-    import httpx
-
     def post_side_effect(request: httpx.Request) -> httpx.Response:
         nonlocal call_count
         call_count += 1
@@ -93,8 +92,6 @@ async def test_process_respects_max_concurrency():
         await asyncio.sleep(0.01)
         in_flight -= 1
         return resp_202()
-
-    import httpx
 
     async def input_stream():
         for i in range(10):
