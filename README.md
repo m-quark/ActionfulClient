@@ -10,7 +10,7 @@ Build and publish your endpoint at [app.mquark.com](https://app.mquark.com), the
 |---|---|---|
 | .NET / C# | [`MQuark.Actionful.Client`](https://www.nuget.org/packages/MQuark.Actionful.Client) (NuGet) | ✅ Available |
 | JavaScript / TypeScript | [`@mquark/actionful-client`](https://www.npmjs.com/package/@mquark/actionful-client) (npm) | ✅ Available |
-| Python | `mquark-actionful-client` (PyPI) | Planned |
+| Python | [`mquark-actionful-client`](https://pypi.org/project/mquark-actionful-client) (PyPI) | ✅ Available |
 | Go | [`github.com/m-quark/actionful-client-go`](https://pkg.go.dev/github.com/m-quark/actionful-client-go) | ✅ Available |
 
 ---
@@ -212,6 +212,89 @@ for await (const r of pipeline) {
 ```ts
 const signal = AbortSignal.timeout(120_000); // 2 minutes
 const result = await client.invoke<Order, RiskScore>(order, signal);
+```
+
+---
+
+## Python
+
+### Installation
+
+```sh
+pip install mquark-actionful-client
+```
+
+Requires Python 3.10+ and `httpx`.
+
+### Usage
+
+```python
+from mquark_actionful import ActionfulClient, ActionfulClientOptions
+
+async with ActionfulClient(ActionfulClientOptions(
+    endpoint_url="https://...",
+    access_token="...",
+    access_secret="...",
+)) as client:
+    ...
+```
+
+#### Invoke and wait (most common)
+
+```python
+result = await client.invoke({"orderId": 42})
+# result is a dict / list / primitive (json.loads output)
+```
+
+#### Raw async — submit now, poll later
+
+```python
+ticket = await client.submit({"orderId": 42})
+# ticket.job_id, ticket.poll_url
+
+job = await client.get_job(ticket)
+# job.status, job.result_json, job.is_terminal
+```
+
+#### Batch
+
+```python
+# Collect all results
+results = await client.invoke_batch([item1, item2, item3])
+
+# Or stream results as each completes
+async for r in client.stream_batch(items):
+    if r.is_success: process(r.output)
+    else:            log(r.error)
+```
+
+#### Continuous pipeline
+
+```python
+# AsyncIterator source
+async for r in client.process(async_item_stream()):
+    await sink.write(r)
+
+# Push/complete API
+pipeline = client.create_pipeline()
+
+async def producer():
+    for item in items:
+        await pipeline.push(item)
+    pipeline.complete()
+
+asyncio.create_task(producer())
+async for r in pipeline:
+    process(r)
+```
+
+#### Timeouts
+
+```python
+import asyncio
+
+async with asyncio.timeout(120):  # 2 minutes
+    result = await client.invoke({"orderId": 42})
 ```
 
 ---

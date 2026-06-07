@@ -21,6 +21,14 @@ TestResults/
 node_modules/
 dist/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+dist/
+
 # OS
 .DS_Store
 Thumbs.db

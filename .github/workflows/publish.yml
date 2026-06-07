@@ -6,6 +6,7 @@ on:
       - 'v*'       # triggers NuGet release  e.g. v1.2.0
       - 'npm-v*'   # triggers npm release    e.g. npm-v1.2.0
       - 'go-v*'    # triggers Go release     e.g. go-v1.0.0
+      - 'pypi-v*'  # triggers PyPI release   e.g. pypi-v1.0.0
 
 jobs:
   publish-nuget:
@@ -105,3 +106,41 @@ jobs:
           VERSION=${GITHUB_REF_NAME#go-v}
           curl -s "https://sum.golang.org/lookup/github.com/m-quark/actionful-client-go@v${VERSION}" || true
           curl -s "https://proxy.golang.org/github.com/m-quark/actionful-client-go/@v/v${VERSION}.info" || true
+
+  publish-pypi:
+    if: startsWith(github.ref_name, 'pypi-v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#pypi-v}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        working-directory: src/python
+        run: pip install -e ".[dev]" build
+
+      - name: Test
+        working-directory: src/python
+        run: python -m pytest tests/
+
+      - name: Set version
+        working-directory: src/python
+        run: sed -i "s/^version = .*/version = \"${{ steps.version.outputs.VERSION }}\"/" pyproject.toml
+
+      - name: Build
+        working-directory: src/python
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: src/python/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}

@@ -79,3 +79,22 @@ jobs:
       - name: Test
         working-directory: src/go
         run: go test ./... -v -timeout 60s
+
+  python:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: src/python
+        run: pip install -e ".[dev]"
+
+      - name: Test
+        working-directory: src/python
+        run: python -m pytest tests/ -v
