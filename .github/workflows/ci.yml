@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  dotnet:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,5 +31,51 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: dotnet-test-results
           path: "**/*.trx"
+
+  js:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install dependencies
+        working-directory: src/js
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: src/js
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: src/js
+        run: npm test
+
+      - name: Build
+        working-directory: src/js
+        run: npm run build
+
+  go:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build
+        working-directory: src/go
+        run: go build ./...
+
+      - name: Test
+        working-directory: src/go
+        run: go test ./... -v -timeout 60s

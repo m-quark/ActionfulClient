@@ -5,6 +5,7 @@ on:
     tags:
       - 'v*'       # triggers NuGet release  e.g. v1.2.0
       - 'npm-v*'   # triggers npm release    e.g. npm-v1.2.0
+      - 'go-v*'    # triggers Go release     e.g. go-v1.0.0
 
 jobs:
   publish-nuget:
@@ -80,3 +81,27 @@ jobs:
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-go:
+    if: startsWith(github.ref_name, 'go-v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Test
+        working-directory: src/go
+        run: go test ./... -timeout 60s
+
+      # Go modules are published by the tag itself — pkg.go.dev indexes automatically.
+      # This step triggers the proxy to fetch the new version immediately.
+      - name: Trigger pkg.go.dev index
+        run: |
+          VERSION=${GITHUB_REF_NAME#go-v}
+          curl -s "https://sum.golang.org/lookup/github.com/m-quark/actionful-client-go@v${VERSION}" || true
+          curl -s "https://proxy.golang.org/github.com/m-quark/actionful-client-go/@v/v${VERSION}.info" || true
