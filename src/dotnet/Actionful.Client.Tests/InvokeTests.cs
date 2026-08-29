@@ -90,7 +90,7 @@ public class InvokeTests
                 if (timestamps.Count < 2)
                 {
                     var r = new HttpResponseMessage(HttpStatusCode.Accepted);
-                    r.Headers.Add("Retry-After", "1"); // 1 second — above PollInterval (10ms)
+                    r.Headers.Add("Retry-After", "1"); // 1 second — above the poll interval (10ms)
                     return r;
                 }
                 return new HttpResponseMessage(HttpStatusCode.OK)

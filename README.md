@@ -131,6 +131,29 @@ using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
 var result = await client.InvokeAsync<Order, RiskScore>(order, cts.Token);
 ```
 
+#### Waiting and polling
+
+`InvokeAsync` returns in a single round trip when the flow finishes inside the server's hold. Anything
+longer comes back as a job the client polls for you, backing off between attempts.
+
+```csharp
+services.Configure<ActionfulClientOptions>(o =>
+{
+    // Ask the server to hold the request open longer, so more flows answer in one round trip.
+    // Sent as RFC 7240 `Prefer: wait`; the server clamps anything it will not sustain.
+    o.PreferredWait = TimeSpan.FromSeconds(30);
+
+    // Poll cadence for flows that outlast the hold: doubles from the first wait up to the ceiling.
+    o.InitialPollInterval = TimeSpan.FromMilliseconds(250);
+    o.MaxPollInterval     = TimeSpan.FromSeconds(5);
+});
+```
+
+A `Retry-After` from the server always wins over `MaxPollInterval` — the server knows what the endpoint
+costs, so it can widen the gap but the client never narrows it.
+
+> `PollInterval` is obsolete. Setting it pins a fixed interval with no backoff, as in 1.0.x.
+
 ---
 
 ## JavaScript / TypeScript

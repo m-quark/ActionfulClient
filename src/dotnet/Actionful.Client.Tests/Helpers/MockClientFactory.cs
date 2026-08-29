@@ -12,7 +12,8 @@ internal static class MockClientFactory
         EndpointUrl = "https://edge.mquark.test/api/workflows/org/space/ep",
         AccessToken = "test-token",
         AccessSecret = "test-secret",
-        PollInterval = TimeSpan.FromMilliseconds(10),
+        InitialPollInterval = TimeSpan.FromMilliseconds(10),
+        MaxPollInterval = TimeSpan.FromMilliseconds(50),
     };
 
     internal static (IActionfulClient client, MockHttpMessageHandler mock) Create(
