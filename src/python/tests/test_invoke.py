@@ -69,7 +69,7 @@ async def test_invoke_respects_retry_after():
     with respx.mock:
         respx.post(ENDPOINT).mock(return_value=resp_202())
         respx.get(JOB_URL).mock(side_effect=poll_side_effect)
-        async with make_client(poll_interval=0.001) as client:
+        async with make_client(initial_poll_interval=0.001) as client:
             await client.invoke_raw('{}')
 
     assert poll_count == 2

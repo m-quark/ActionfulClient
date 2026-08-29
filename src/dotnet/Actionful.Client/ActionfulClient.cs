@@ -17,13 +17,6 @@ internal sealed class ActionfulClient(
 {
     private readonly ActionfulClientOptions _options = options.Value;
 
-    // RFC 7240: how long the caller is willing to have the request held open before being handed a job
-    // to poll. `wait=0` asks for an immediate 202.
-    private const string PreferHeader = "Prefer";
-
-    // Pre-Prefer spelling of the same request. Still sent so a client can be upgraded ahead of the server.
-    private const string TimeoutHeader = "Mq-Timeout-Seconds";
-
     // Fraction by which a poll wait is randomly spread, so a batch submitted together does not come back
     // in lockstep.
     private const double JitterRatio = 0.2;
@@ -57,14 +50,13 @@ internal sealed class ActionfulClient(
     public async Task<InvocationTicket> SubmitAsync(string jsonPayload, CancellationToken ct = default)
     {
         using var request = BuildPostRequest(_options.EndpointUrl, jsonPayload);
-        request.Headers.TryAddWithoutValidation(PreferHeader, "wait=0");
-        request.Headers.TryAddWithoutValidation(TimeoutHeader, "0");
 
         var response = await http.SendAsync(request, ct).ConfigureAwait(false);
         await EnsureSuccessAsync(response, ct).ConfigureAwait(false);
 
-        // SubmitAsync always expects 202 (forced by `Prefer: wait=0`).
-        // If the server returns 200 anyway, surface a clear error rather than silently dropping the result.
+        // The server never holds the connection, so a just-scheduled workflow is still running and the
+        // response is 202. If it completed inside that window, surface a clear error rather than
+        // silently dropping the result — there is no Location to build a ticket from.
         if (response.StatusCode != HttpStatusCode.Accepted)
             throw new ActionfulException(response.StatusCode,
                 "Expected 202 Accepted from SubmitAsync but received a different status code.");
@@ -98,9 +90,6 @@ internal sealed class ActionfulClient(
     public async Task<string> InvokeAsync(string jsonPayload, CancellationToken ct = default)
     {
         using var request = BuildPostRequest(_options.EndpointUrl, jsonPayload);
-        if (_options.PreferredWait is { } preferredWait)
-            request.Headers.TryAddWithoutValidation(
-                PreferHeader, $"wait={(int)Math.Ceiling(preferredWait.TotalSeconds)}");
 
         var response = await http.SendAsync(request, ct).ConfigureAwait(false);
         await EnsureSuccessAsync(response, ct).ConfigureAwait(false);
@@ -274,10 +263,7 @@ internal sealed class ActionfulClient(
 
     private async Task<string> PollUntilCompleteAsync(string pollUrl, CancellationToken ct)
     {
-#pragma warning disable CS0618 // honouring the obsolete fixed-interval option
-        var fixedInterval = _options.PollInterval;
-#pragma warning restore CS0618
-        var backoff = fixedInterval ?? _options.InitialPollInterval;
+        var backoff = _options.InitialPollInterval;
 
         while (true)
         {
@@ -297,7 +283,7 @@ internal sealed class ActionfulClient(
             logger.LogDebug("Job at {PollUrl} still running, waiting {WaitMs}ms", pollUrl, wait.TotalMilliseconds);
             await Task.Delay(wait, ct).ConfigureAwait(false);
 
-            if (fixedInterval is null && backoff < _options.MaxPollInterval)
+            if (backoff < _options.MaxPollInterval)
                 backoff = backoff + backoff > _options.MaxPollInterval ? _options.MaxPollInterval : backoff + backoff;
         }
     }

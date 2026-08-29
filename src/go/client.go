@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,15 +16,17 @@ import (
 	"time"
 )
 
-// Sent on submit to force an immediate 202 (internal optimisation, not part of the public contract).
-const mqTimeoutHeader = "Mq-Timeout-Seconds"
+// jitterRatio is the fraction by which a poll wait is randomly spread, so a batch submitted together
+// does not come back in lockstep.
+const jitterRatio = 0.2
 
 // Client invokes a single published Actionful endpoint.
 type Client struct {
-	endpointURL  string
-	authHeader   string
-	pollInterval time.Duration
-	http         *http.Client
+	endpointURL         string
+	authHeader          string
+	initialPollInterval time.Duration
+	maxPollInterval     time.Duration
+	http                *http.Client
 }
 
 // New creates a Client from the provided options.
@@ -35,10 +38,11 @@ func New(opts Options) (*Client, error) {
 	raw := fmt.Sprintf("%s:%s", opts.AccessToken, opts.AccessSecret)
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(raw))
 	return &Client{
-		endpointURL:  opts.EndpointURL,
-		authHeader:   auth,
-		pollInterval: opts.pollInterval(),
-		http:         &http.Client{},
+		endpointURL:         opts.EndpointURL,
+		authHeader:          auth,
+		initialPollInterval: opts.initialPollInterval(),
+		maxPollInterval:     opts.maxPollInterval(),
+		http:                &http.Client{},
 	}, nil
 }
 
@@ -60,7 +64,6 @@ func (c *Client) Submit(ctx context.Context, payload string) (InvocationTicket, 
 	if err != nil {
 		return InvocationTicket{}, err
 	}
-	req.Header.Set(mqTimeoutHeader, "0")
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.http.Do(req)
@@ -318,6 +321,8 @@ func (p *Pipeline[TInput, TOutput]) Results() <-chan InvocationResult[TOutput] {
 // ── Internal ───────────────────────────────────────────────────────────────
 
 func (c *Client) pollUntilComplete(ctx context.Context, pollURL string) (string, error) {
+	backoff := c.initialPollInterval
+
 	for {
 		if err := ctx.Err(); err != nil {
 			return "", err
@@ -343,13 +348,22 @@ func (c *Client) pollUntilComplete(ctx context.Context, pollURL string) (string,
 			return string(body), err
 		}
 
-		wait := pollWait(resp, c.pollInterval)
+		// 202 - still running. Retry-After is the server's instruction, not a suggestion: it knows what
+		// this endpoint costs, and it outranks maxPollInterval, which bounds only our own backoff.
+		wait := backoff
+		if server := retryAfter(resp); server > wait {
+			wait = server
+		}
 		resp.Body.Close()
 
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
-		case <-time.After(wait):
+		case <-time.After(applyJitter(wait)):
+		}
+
+		if backoff *= 2; backoff > c.maxPollInterval {
+			backoff = c.maxPollInterval
 		}
 	}
 }
@@ -433,16 +447,17 @@ func extractJobID(url string) string {
 	return url[idx+1:]
 }
 
-func pollWait(resp *http.Response, floor time.Duration) time.Duration {
+func retryAfter(resp *http.Response) time.Duration {
 	if s := resp.Header.Get("Retry-After"); s != "" {
 		if secs, err := strconv.Atoi(s); err == nil {
-			server := time.Duration(secs) * time.Second
-			if server > floor {
-				return server
-			}
+			return time.Duration(secs) * time.Second
 		}
 	}
-	return floor
+	return 0
+}
+
+func applyJitter(d time.Duration) time.Duration {
+	return time.Duration(float64(d) * (1 + (rand.Float64()-0.5)*jitterRatio))
 }
 
 func deserialise[T any](jsonStr string) (T, error) {

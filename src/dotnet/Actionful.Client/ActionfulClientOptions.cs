@@ -21,13 +21,6 @@ public sealed class ActionfulClientOptions
     public string AccessSecret { get; init; } = string.Empty;
 
     /// <summary>
-    /// How long to ask the server to hold an invocation open before handing back a job to poll, sent as
-    /// RFC 7240 <c>Prefer: wait</c>. A flow that finishes inside the hold costs a single round trip.
-    /// Leave null to accept the server's own default; the server clamps anything it will not sustain.
-    /// </summary>
-    public TimeSpan? PreferredWait { get; init; }
-
-    /// <summary>
     /// Wait before the first poll of a job that is still running. Default: 250ms.
     /// </summary>
     /// <remarks>
@@ -38,11 +31,4 @@ public sealed class ActionfulClientOptions
 
     /// <summary>Ceiling on the wait between polls. Default: 5 seconds.</summary>
     public TimeSpan MaxPollInterval { get; init; } = TimeSpan.FromSeconds(5);
-
-    /// <summary>
-    /// Fixed interval between polls, disabling backoff.
-    /// </summary>
-    [Obsolete("Polling now backs off; set InitialPollInterval and MaxPollInterval instead. " +
-              "When this is set it pins a fixed interval, preserving pre-1.1 behaviour.")]
-    public TimeSpan? PollInterval { get; init; }
 }

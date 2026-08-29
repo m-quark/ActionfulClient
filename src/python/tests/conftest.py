@@ -7,13 +7,17 @@ ENDPOINT = "https://api.test/endpoint"
 JOB_URL = "https://api.test/jobs/abc123"
 
 
-def make_client(poll_interval: float = 0.001) -> ActionfulClient:
+def make_client(
+    initial_poll_interval: float = 0.001,
+    max_poll_interval: float = 0.01,
+) -> ActionfulClient:
     return ActionfulClient(
         ActionfulClientOptions(
             endpoint_url=ENDPOINT,
             access_token="tok",
             access_secret="sec",
-            poll_interval=poll_interval,
+            initial_poll_interval=initial_poll_interval,
+            max_poll_interval=max_poll_interval,
         )
     )
 

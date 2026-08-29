@@ -14,9 +14,13 @@ type Options struct {
 	AccessToken  string
 	AccessSecret string
 
-	// PollInterval is the minimum wait between poll attempts (default 2s).
-	// The server's Retry-After header wins when it suggests waiting longer.
-	PollInterval time.Duration
+	// InitialPollInterval is the wait before the first poll of a job that is still running
+	// (default 250ms). Subsequent waits double up to MaxPollInterval, with jitter.
+	InitialPollInterval time.Duration
+
+	// MaxPollInterval bounds the wait between polls (default 5s). A Retry-After from the server
+	// outranks it.
+	MaxPollInterval time.Duration
 }
 
 func (o *Options) validate() error {
@@ -32,9 +36,16 @@ func (o *Options) validate() error {
 	return nil
 }
 
-func (o *Options) pollInterval() time.Duration {
-	if o.PollInterval > 0 {
-		return o.PollInterval
+func (o *Options) initialPollInterval() time.Duration {
+	if o.InitialPollInterval > 0 {
+		return o.InitialPollInterval
 	}
-	return 2 * time.Second
+	return 250 * time.Millisecond
+}
+
+func (o *Options) maxPollInterval() time.Duration {
+	if o.MaxPollInterval > 0 {
+		return o.MaxPollInterval
+	}
+	return 5 * time.Second
 }

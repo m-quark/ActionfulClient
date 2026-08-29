@@ -25,7 +25,7 @@ describe('invokeRaw', () => {
     expect(result).toBe('{"score":0.8}');
   });
 
-  it('respects Retry-After on poll — waits longer than pollInterval', async () => {
+  it('respects Retry-After on poll — waits longer than the poll interval', async () => {
     const timestamps: number[] = [];
     mockFetch(url => {
       if (!url.includes('/job-')) return response202('job-delay');

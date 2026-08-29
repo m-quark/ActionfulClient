@@ -7,7 +7,8 @@ export const DEFAULT_OPTIONS = {
   endpointUrl: ENDPOINT,
   accessToken: 'test-token',
   accessSecret: 'test-secret',
-  pollInterval: 10,
+  initialPollInterval: 10,
+  maxPollInterval: 50,
 };
 
 export function makeClient() {
