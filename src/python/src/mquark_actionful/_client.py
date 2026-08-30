@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import dataclasses
 import json
 from datetime import datetime, timezone
@@ -20,8 +21,9 @@ from ._types import (
     PipelineOptions,
 )
 
-# Sent on submit() to force an immediate 202 (internal optimisation, not part of the public contract).
-_TIMEOUT_HEADER = "Mq-Timeout-Seconds"
+# Fraction by which a poll wait is randomly spread, so a batch submitted together does not come back
+# in lockstep.
+_JITTER_RATIO = 0.2
 
 _SENTINEL = object()
 
@@ -36,7 +38,8 @@ class ActionfulClient:
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._endpoint_url = options.endpoint_url
-        self._poll_interval = options.poll_interval
+        self._initial_poll_interval = options.initial_poll_interval
+        self._max_poll_interval = options.max_poll_interval
         self._http = http_client or httpx.AsyncClient(
             auth=(options.access_token, options.access_secret)
         )
@@ -57,7 +60,7 @@ class ActionfulClient:
         response = await self._http.post(
             self._endpoint_url,
             content=_serialise(input),
-            headers={"Content-Type": "application/json", _TIMEOUT_HEADER: "0"},
+            headers={"Content-Type": "application/json"},
         )
         _ensure_success(response)
         return _parse_ticket(response)
@@ -192,6 +195,8 @@ class ActionfulClient:
     # ── Internal ─────────────────────────────────────────────────────────────
 
     async def _poll_until_complete(self, poll_url: str) -> str:
+        backoff = self._initial_poll_interval
+
         while True:
             response = await self._http.get(poll_url)
             _ensure_success(response)
@@ -199,7 +204,11 @@ class ActionfulClient:
             if response.status_code == 200:
                 return response.text
 
-            await asyncio.sleep(_poll_wait(response, self._poll_interval))
+            # 202 - still running. Retry-After is the server's instruction, not a suggestion: it knows
+            # what this endpoint costs, and it outranks max_poll_interval, which bounds only our backoff.
+            await asyncio.sleep(_apply_jitter(max(backoff, _retry_after(response))))
+
+            backoff = min(backoff * 2, self._max_poll_interval)
 
     async def _invoke_one(self, item: Any) -> InvocationResult[Any]:
         ticket = InvocationTicket(job_id="unknown", poll_url="", submitted_at=datetime.now(timezone.utc))
@@ -334,8 +343,10 @@ def _ensure_success(response: httpx.Response) -> None:
     )
 
 
-def _poll_wait(response: httpx.Response, floor: float) -> float:
+def _retry_after(response: httpx.Response) -> float:
     ra = response.headers.get("retry-after", "")
-    if ra.isdigit():
-        return max(floor, float(ra))
-    return floor
+    return float(ra) if ra.isdigit() else 0.0
+
+
+def _apply_jitter(seconds: float) -> float:
+    return seconds * (1 + (random.random() - 0.5) * _JITTER_RATIO)

@@ -67,8 +67,11 @@ class ActionfulClientOptions:
     endpoint_url: str
     access_token: str
     access_secret: str
-    # Floor for poll wait; server Retry-After wins when higher.
-    poll_interval: float = 2.0
+    # Wait before the first poll of a job that is still running, in seconds. Subsequent waits double
+    # up to max_poll_interval, with jitter.
+    initial_poll_interval: float = 0.25
+    # Ceiling on the wait between polls. A Retry-After from the server outranks it.
+    max_poll_interval: float = 5.0
 
     def __post_init__(self) -> None:
         if not self.endpoint_url:

@@ -21,11 +21,15 @@ describe('submit', () => {
     expect(JSON.parse(init.body as string)).toEqual({ amount: 99 });
   });
 
-  it('sends Mq-Timeout-Seconds: 0 header', async () => {
+  it('negotiates no server-side wait', async () => {
+    // The server holds no connection and reads no wait preference; asking for one advertises a
+    // contract that does not exist. See docs/design/actionful-client-sdk.md.
     const fetch = mockFetch(() => response202('job-x'));
     await makeClient().submit('{}');
     const [, init] = fetch.mock.calls[0] as [string, RequestInit];
-    expect((init.headers as Record<string, string>)['Mq-Timeout-Seconds']).toBe('0');
+    const headers = init.headers as Record<string, string>;
+    expect(headers['Mq-Timeout-Seconds']).toBeUndefined();
+    expect(headers['Prefer']).toBeUndefined();
   });
 
   it('attaches Basic Auth header', async () => {

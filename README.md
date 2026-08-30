@@ -131,6 +131,30 @@ using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
 var result = await client.InvokeAsync<Order, RiskScore>(order, cts.Token);
 ```
 
+#### Polling
+
+`InvokeAsync` returns in a single round trip when the flow has already completed. Anything longer
+comes back as a job the client polls for you, backing off between attempts.
+
+```csharp
+services.Configure<ActionfulClientOptions>(o =>
+{
+    o.InitialPollInterval = TimeSpan.FromMilliseconds(250);
+    o.MaxPollInterval     = TimeSpan.FromSeconds(5);
+});
+```
+
+The equivalent options are `initialPollInterval` / `maxPollInterval` (JS, milliseconds),
+`initial_poll_interval` / `max_poll_interval` (Python, seconds), and `InitialPollInterval` /
+`MaxPollInterval` (Go, `time.Duration`).
+
+A `Retry-After` from the server always wins over the ceiling — the server knows what the endpoint
+costs, so it can widen the gap but the client never narrows it. Waits carry ±10% jitter so a batch
+submitted together does not come back in lockstep.
+
+The server never holds a connection waiting on a flow, and there is no way for a caller to ask it
+to: waiting is the client's side of the contract.
+
 ---
 
 ## JavaScript / TypeScript

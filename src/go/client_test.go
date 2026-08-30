@@ -67,10 +67,11 @@ func fakeServer(t *testing.T, resultBody string, async bool, pollCount int) *htt
 func newTestClient(t *testing.T, srv *httptest.Server) *actionful.Client {
 	t.Helper()
 	c, err := actionful.NewWithHTTPClient(actionful.Options{
-		EndpointURL:  srv.URL + "/endpoint",
-		AccessToken:  "tok",
-		AccessSecret: "sec",
-		PollInterval: 1 * time.Millisecond,
+		EndpointURL:         srv.URL + "/endpoint",
+		AccessToken:         "tok",
+		AccessSecret:        "sec",
+		InitialPollInterval: 1 * time.Millisecond,
+		MaxPollInterval:     10 * time.Millisecond,
 	}, srv.Client())
 	if err != nil {
 		t.Fatalf("NewWithHTTPClient: %v", err)
@@ -403,5 +404,28 @@ func TestNew_MissingAccessToken(t *testing.T) {
 	_, err := actionful.New(actionful.Options{EndpointURL: "https://example.com", AccessSecret: "s"})
 	if err == nil {
 		t.Fatal("expected error for missing AccessToken")
+	}
+}
+
+// The server holds no connection and reads no wait preference; asking for one advertises a contract
+// that does not exist. See docs/design/actionful-client-sdk.md.
+func TestSubmit_NegotiatesNoServerSideWait(t *testing.T) {
+	var got http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+		w.Header().Set("Location", "/endpoint/job-1")
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv)
+	if _, err := c.Submit(context.Background(), `{}`); err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+
+	for _, h := range []string{"Mq-Timeout-Seconds", "Prefer"} {
+		if v := got.Get(h); v != "" {
+			t.Errorf("client must not send %s, got %q", h, v)
+		}
 	}
 }

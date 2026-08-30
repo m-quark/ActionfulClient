@@ -73,8 +73,13 @@ export interface ActionfulClientOptions {
   /** Access secret shown in the Actionful Web UI. */
   accessSecret: string;
   /**
-   * Minimum interval between poll requests in milliseconds.
-   * Actual wait = max(pollInterval, Retry-After). Default: 2000.
+   * Wait before the first poll of a job that is still running, in milliseconds. Subsequent waits
+   * double up to `maxPollInterval`, with jitter. Default: 250.
    */
-  pollInterval?: number;
+  initialPollInterval?: number;
+  /**
+   * Ceiling on the wait between polls, in milliseconds. A `Retry-After` from the server outranks it.
+   * Default: 5000.
+   */
+  maxPollInterval?: number;
 }

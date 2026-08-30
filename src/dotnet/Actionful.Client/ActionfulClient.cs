@@ -17,8 +17,9 @@ internal sealed class ActionfulClient(
 {
     private readonly ActionfulClientOptions _options = options.Value;
 
-    // Sent on SubmitAsync to force an immediate 202 (internal optimisation, not part of the public contract).
-    private const string TimeoutHeader = "Mq-Timeout-Seconds";
+    // Fraction by which a poll wait is randomly spread, so a batch submitted together does not come back
+    // in lockstep.
+    private const double JitterRatio = 0.2;
 
     // Case-insensitive to tolerate varying JSON conventions from endpoint authors.
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -49,13 +50,13 @@ internal sealed class ActionfulClient(
     public async Task<InvocationTicket> SubmitAsync(string jsonPayload, CancellationToken ct = default)
     {
         using var request = BuildPostRequest(_options.EndpointUrl, jsonPayload);
-        request.Headers.TryAddWithoutValidation(TimeoutHeader, "0");
 
         var response = await http.SendAsync(request, ct).ConfigureAwait(false);
         await EnsureSuccessAsync(response, ct).ConfigureAwait(false);
 
-        // SubmitAsync always expects 202 (forced by Mq-Timeout-Seconds: 0).
-        // If the server returns 200 anyway, surface a clear error rather than silently dropping the result.
+        // The server never holds the connection, so a just-scheduled workflow is still running and the
+        // response is 202. If it completed inside that window, surface a clear error rather than
+        // silently dropping the result — there is no Location to build a ticket from.
         if (response.StatusCode != HttpStatusCode.Accepted)
             throw new ActionfulException(response.StatusCode,
                 "Expected 202 Accepted from SubmitAsync but received a different status code.");
@@ -262,6 +263,8 @@ internal sealed class ActionfulClient(
 
     private async Task<string> PollUntilCompleteAsync(string pollUrl, CancellationToken ct)
     {
+        var backoff = _options.InitialPollInterval;
+
         while (true)
         {
             ct.ThrowIfCancellationRequested();
@@ -272,19 +275,22 @@ internal sealed class ActionfulClient(
             if (response.StatusCode == HttpStatusCode.OK)
                 return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
-            // 202 — still running; respect Retry-After, but enforce the configured floor
-            var wait = GetPollWait(response);
+            // 202 — still running. Retry-After is the server's instruction, not a suggestion: it knows what
+            // this endpoint costs, and it outranks MaxPollInterval, which bounds only our own backoff.
+            var interval = response.Headers.RetryAfter?.Delta is { } delta && delta > backoff ? delta : backoff;
+
+            var wait = ApplyJitter(interval);
             logger.LogDebug("Job at {PollUrl} still running, waiting {WaitMs}ms", pollUrl, wait.TotalMilliseconds);
             await Task.Delay(wait, ct).ConfigureAwait(false);
+
+            if (backoff < _options.MaxPollInterval)
+                backoff = backoff + backoff > _options.MaxPollInterval ? _options.MaxPollInterval : backoff + backoff;
         }
     }
 
-    private TimeSpan GetPollWait(HttpResponseMessage response)
-    {
-        if (response.Headers.RetryAfter?.Delta is { } delta && delta > _options.PollInterval)
-            return delta;
-        return _options.PollInterval;
-    }
+    private static TimeSpan ApplyJitter(TimeSpan interval) =>
+        TimeSpan.FromMilliseconds(
+            interval.TotalMilliseconds * (1 + ((Random.Shared.NextDouble() - 0.5) * JitterRatio)));
 
     private static HttpRequestMessage BuildPostRequest(string url, string jsonPayload) => 
         new(HttpMethod.Post, url)

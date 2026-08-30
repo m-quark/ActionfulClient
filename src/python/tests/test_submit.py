@@ -100,3 +100,17 @@ async def test_missing_endpoint_url_raises():
     with pytest.raises(ValueError, match="endpoint_url"):
         from mquark_actionful import ActionfulClientOptions
         ActionfulClientOptions(endpoint_url="", access_token="t", access_secret="s")
+
+
+async def test_submit_negotiates_no_server_side_wait():
+    """The server holds no connection and reads no wait preference; asking for one advertises a
+    contract that does not exist. See docs/design/actionful-client-sdk.md."""
+    with respx.mock:
+        route = respx.post(ENDPOINT).mock(return_value=resp_202())
+
+        async with make_client() as client:
+            await client.submit({"a": 1})
+
+        headers = route.calls[0].request.headers
+        assert "mq-timeout-seconds" not in headers
+        assert "prefer" not in headers

@@ -21,9 +21,14 @@ public sealed class ActionfulClientOptions
     public string AccessSecret { get; init; } = string.Empty;
 
     /// <summary>
-    /// Minimum interval between poll requests when waiting for a job to complete.
-    /// The actual wait is <c>max(PollInterval, Retry-After)</c> — the server hint wins when it is longer.
-    /// Default: 2 seconds.
+    /// Wait before the first poll of a job that is still running. Default: 250ms.
     /// </summary>
-    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);
+    /// <remarks>
+    /// Subsequent waits double up to <see cref="MaxPollInterval"/>, with jitter, so a fast job is
+    /// noticed quickly while a slow one settles into an unobtrusive cadence.
+    /// </remarks>
+    public TimeSpan InitialPollInterval { get; init; } = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>Ceiling on the wait between polls. Default: 5 seconds.</summary>
+    public TimeSpan MaxPollInterval { get; init; } = TimeSpan.FromSeconds(5);
 }

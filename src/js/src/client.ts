@@ -11,9 +11,11 @@ import type {
   PipelineOptions,
 } from './types.js';
 
-// Sent on submit() to force an immediate 202 (internal optimisation, not part of the public contract).
-const TIMEOUT_HEADER = 'Mq-Timeout-Seconds';
-const DEFAULT_POLL_INTERVAL = 2000;
+const DEFAULT_INITIAL_POLL_INTERVAL = 250;
+const DEFAULT_MAX_POLL_INTERVAL = 5000;
+// Fraction by which a poll wait is randomly spread, so a batch submitted together does not come back
+// in lockstep.
+const JITTER_RATIO = 0.2;
 const DEFAULT_BATCH_CONCURRENCY = 10;
 const DEFAULT_BATCH_OUTPUT_CAPACITY = 1000;
 const DEFAULT_PIPELINE_CONCURRENCY = 10;
@@ -21,12 +23,14 @@ const DEFAULT_PIPELINE_CONCURRENCY = 10;
 export class ActionfulClient {
   private readonly _endpointUrl: string;
   private readonly _authHeader: string;
-  private readonly _pollInterval: number;
+  private readonly _initialPollInterval: number;
+  private readonly _maxPollInterval: number;
 
   constructor(options: ActionfulClientOptions) {
     this._endpointUrl = options.endpointUrl;
     this._authHeader = buildBasicAuth(options.accessToken, options.accessSecret);
-    this._pollInterval = options.pollInterval ?? DEFAULT_POLL_INTERVAL;
+    this._initialPollInterval = options.initialPollInterval ?? DEFAULT_INITIAL_POLL_INTERVAL;
+    this._maxPollInterval = options.maxPollInterval ?? DEFAULT_MAX_POLL_INTERVAL;
   }
 
   // ── Layer 1 · Raw async ─────────────────────────────────────────────────
@@ -36,7 +40,7 @@ export class ActionfulClient {
     const payload = serialise(input);
     const response = await this._fetch(this._endpointUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', [TIMEOUT_HEADER]: '0' },
+      headers: { 'Content-Type': 'application/json' },
       body: payload,
       signal,
     });
@@ -182,6 +186,8 @@ export class ActionfulClient {
   // ── Internal ────────────────────────────────────────────────────────────
 
   private async _pollUntilComplete(pollUrl: string, signal?: AbortSignal): Promise<string> {
+    let backoff = this._initialPollInterval;
+
     while (true) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
@@ -190,8 +196,14 @@ export class ActionfulClient {
 
       if (response.status === 200) return response.text();
 
-      const wait = getPollWait(response, this._pollInterval);
-      await delay(wait, signal);
+      // 202 — still running. Retry-After is the server's instruction, not a suggestion: it knows what
+      // this endpoint costs, and it outranks maxPollInterval, which bounds only our own backoff.
+      const retryAfter = response.headers.get('Retry-After');
+      const serverMs = retryAfter ? parseInt(retryAfter) * 1000 : 0;
+
+      await delay(applyJitter(Math.max(backoff, serverMs)), signal);
+
+      backoff = Math.min(backoff * 2, this._maxPollInterval);
     }
   }
 
@@ -260,10 +272,8 @@ function extractJobId(url: string): string {
   return trimmed.substring(trimmed.lastIndexOf('/') + 1);
 }
 
-function getPollWait(response: Response, pollInterval: number): number {
-  const retryAfter = response.headers.get('Retry-After');
-  const serverMs = retryAfter ? parseInt(retryAfter) * 1000 : 0;
-  return Math.max(pollInterval, serverMs);
+function applyJitter(ms: number): number {
+  return ms * (1 + (Math.random() - 0.5) * JITTER_RATIO);
 }
 
 async function ensureSuccess(response: Response): Promise<void> {
