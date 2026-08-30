@@ -1,3 +1,3 @@
-module github.com/m-quark/actionful-client-go
+module github.com/m-quark/ActionfulClient/src/go
 
 go 1.22
