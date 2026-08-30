@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	actionful "github.com/m-quark/actionful-client-go"
+	actionful "github.com/m-quark/ActionfulClient/src/go"
 )
 
 // ── Helpers ────────────────────────────────────────────────────────────────

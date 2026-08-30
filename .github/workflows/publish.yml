@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*'       # triggers NuGet release  e.g. v1.2.0
       - 'npm-v*'   # triggers npm release    e.g. npm-v1.2.0
-      - 'go-v*'    # triggers Go release     e.g. go-v1.0.0
+      - 'src/go/v*' # triggers Go release    e.g. src/go/v1.0.0
       - 'pypi-v*'  # triggers PyPI release   e.g. pypi-v1.0.0
 
 jobs:
@@ -84,7 +84,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-go:
-    if: startsWith(github.ref_name, 'go-v')
+    if: startsWith(github.ref_name, 'src/go/v')
     runs-on: ubuntu-latest
 
     steps:
@@ -99,13 +99,23 @@ jobs:
         working-directory: src/go
         run: go test ./... -timeout 60s
 
-      # Go modules are published by the tag itself — pkg.go.dev indexes automatically.
-      # This step triggers the proxy to fetch the new version immediately.
-      - name: Trigger pkg.go.dev index
+      # A Go module is published by its tag — there is no upload step. Fetching it through the
+      # proxy is what makes it resolvable and indexes it on pkg.go.dev.
+      #
+      # The module lives in a subdirectory, so its path is <repo>/src/go and its tags are
+      # src/go/vX.Y.Z. Proxy URLs case-escape uppercase letters as !<lower>, so ActionfulClient
+      # becomes !actionful!client.
+      #
+      # Deliberately no `|| true`: a 404 here means the tag produced nothing fetchable, and that
+      # must fail the job. The previous version of this step could not fail, and reported success
+      # for a module that did not exist.
+      - name: Publish to the Go module proxy
         run: |
-          VERSION=${GITHUB_REF_NAME#go-v}
-          curl -s "https://sum.golang.org/lookup/github.com/m-quark/actionful-client-go@v${VERSION}" || true
-          curl -s "https://proxy.golang.org/github.com/m-quark/actionful-client-go/@v/v${VERSION}.info" || true
+          set -euo pipefail
+          VERSION=${GITHUB_REF_NAME#src/go/v}
+          MODULE='github.com/m-quark/!actionful!client/src/go'
+          curl -sSf --retry 5 --retry-delay 10 --retry-all-errors "https://proxy.golang.org/${MODULE}/@v/v${VERSION}.info"
+          curl -sSf --retry 3 --retry-delay 5 --retry-all-errors "https://sum.golang.org/lookup/${MODULE}@v${VERSION}"
 
   publish-pypi:
     if: startsWith(github.ref_name, 'pypi-v')

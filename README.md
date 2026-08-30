@@ -11,7 +11,7 @@ Build and publish your endpoint at [app.mquark.com](https://app.mquark.com), the
 | .NET / C# | [`MQuark.Actionful.Client`](https://www.nuget.org/packages/MQuark.Actionful.Client) (NuGet) | ✅ Available |
 | JavaScript / TypeScript | [`@mquark/actionful-client`](https://www.npmjs.com/package/@mquark/actionful-client) (npm) | ✅ Available |
 | Python | [`mquark-actionful-client`](https://pypi.org/project/mquark-actionful-client) (PyPI) | ✅ Available |
-| Go | [`github.com/m-quark/actionful-client-go`](https://pkg.go.dev/github.com/m-quark/actionful-client-go) | ✅ Available |
+| Go | [`github.com/m-quark/ActionfulClient/src/go`](https://pkg.go.dev/github.com/m-quark/ActionfulClient/src/go) | ✅ Available |
 
 ---
 
@@ -328,15 +328,19 @@ async with asyncio.timeout(120):  # 2 minutes
 ### Installation
 
 ```sh
-go get github.com/m-quark/actionful-client-go
+go get github.com/m-quark/ActionfulClient/src/go
 ```
 
 Requires Go 1.22+.
 
+> Go has no package registry — the import path *is* the source location — so the path names this
+> repository and the subdirectory the client lives in. Releases are tagged `src/go/vX.Y.Z`, which
+> is how Go versions a module that is not at its repository root.
+
 ### Usage
 
 ```go
-import actionful "github.com/m-quark/actionful-client-go"
+import actionful "github.com/m-quark/ActionfulClient/src/go"
 
 client, err := actionful.New(actionful.Options{
     EndpointURL:  "https://...",
