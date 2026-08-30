@@ -11,7 +11,7 @@ Build and publish your endpoint at [app.mquark.com](https://app.mquark.com), the
 | .NET / C# | [`MQuark.Actionful.Client`](https://www.nuget.org/packages/MQuark.Actionful.Client) (NuGet) | ✅ Available |
 | JavaScript / TypeScript | [`@mquark/actionful-client`](https://www.npmjs.com/package/@mquark/actionful-client) (npm) | ✅ Available |
 | Python | [`mquark-actionful-client`](https://pypi.org/project/mquark-actionful-client) (PyPI) | ✅ Available |
-| Go | [`github.com/m-quark/actionful-client-go`](https://pkg.go.dev/github.com/m-quark/actionful-client-go) | ✅ Available |
+| Go | `github.com/m-quark/actionful-client-go` | 🚧 Not published — see note below |
 
 ---
 
@@ -325,10 +325,16 @@ async with asyncio.timeout(120):  # 2 minutes
 
 ## Go
 
+> **Not yet installable.** The module path below has never resolved — no repository exists at
+> that address, so `go get` fails. Unlike npm, NuGet and PyPI, Go has no registry: the import
+> path *is* the source location, so it has to point at a real repository. The client source is
+> complete and tested (`src/go`); only its publishing address is unsettled. Tracking issue to
+> follow.
+
 ### Installation
 
 ```sh
-go get github.com/m-quark/actionful-client-go
+go get github.com/m-quark/actionful-client-go   # pending — see note above
 ```
 
 Requires Go 1.22+.
