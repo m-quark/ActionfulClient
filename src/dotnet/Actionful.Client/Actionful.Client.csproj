@@ -12,8 +12,8 @@
     <Authors>mQuark</Authors>
     <Description>Official .NET client for invoking mQuark Actionful endpoints — single, batch, and pipeline.</Description>
     <PackageTags>mquark;actionful;client;http;api;sdk;pipeline;batch</PackageTags>
-    <PackageProjectUrl>https://github.com/mquark/actionful-client</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/mquark/actionful-client</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/m-quark/ActionfulClient</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/m-quark/ActionfulClient</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <None Include="..\..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
