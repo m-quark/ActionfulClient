@@ -75,7 +75,10 @@ jobs:
 
       - name: Set version
         working-directory: src/js
-        run: npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
+        # --allow-same-version: the manifest is kept in step with what is published, so the tag's
+        # version often already matches. Without this, `npm version` treats a no-op as an error
+        # and fails the release.
+        run: npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version --allow-same-version
 
       - name: Publish to npm
         working-directory: src/js
