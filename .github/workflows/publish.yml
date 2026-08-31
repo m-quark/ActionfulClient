@@ -75,7 +75,10 @@ jobs:
 
       - name: Set version
         working-directory: src/js
-        run: npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
+        # --allow-same-version: the manifest is kept in step with what is published, so the tag's
+        # version often already matches. Without this, `npm version` treats a no-op as an error
+        # and fails the release.
+        run: npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version --allow-same-version
 
       - name: Publish to npm
         working-directory: src/js
@@ -113,7 +116,9 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=${GITHUB_REF_NAME#src/go/v}
-          MODULE='github.com/m-quark/!actionful!client/src/go'
+          # Includes the major-version suffix from go.mod: a v2+ module is a distinct path on the
+          # proxy, and the tag prefix (src/go) is the directory, which does not carry the suffix.
+          MODULE='github.com/m-quark/!actionful!client/src/go/v2'
           curl -sSf --retry 5 --retry-delay 10 --retry-all-errors "https://proxy.golang.org/${MODULE}/@v/v${VERSION}.info"
           curl -sSf --retry 3 --retry-delay 5 --retry-all-errors "https://sum.golang.org/lookup/${MODULE}@v${VERSION}"
 

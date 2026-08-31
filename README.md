@@ -408,6 +408,14 @@ score, err := actionful.Invoke[Order, RiskScore](ctx, client, order)
 
 ---
 
+## Releasing
+
+Maintainers: see [docs/design/release-process.md](docs/design/release-process.md)
+before cutting a release. Four SDKs ship from this repo on four independent tags, and several of
+the failure modes are silent.
+
+---
+
 ## License
 
 MIT
